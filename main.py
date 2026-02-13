@@ -32,6 +32,21 @@ class TaskDB(Base):
         if self.status == "completed":
             return 0
         return (self.due_date - date.today()).days
+    
+    @staticmethod
+    def validate_status_transition(old_status: str, new_status: str) -> bool:
+        if old_status == "completed" and new_status in ["pending", "in_progress"]:
+            return False
+        if old_status == "pending" and new_status == "in_progress":
+            return True
+        if old_status == "in_progress" and new_status == "completed":
+            return True
+        return old_status == new_status
+    
+    @staticmethod
+    def can_create_high_priority(db: Session) -> bool:
+        count = db.query(TaskDB).filter(TaskDB.priority == "high", TaskDB.status == "pending").count()
+        return count < 5
 
 Base.metadata.create_all(bind=engine)
 
