@@ -80,6 +80,30 @@ class CreateTask(BaseModel):
             if self.due_date > max_date:
                 raise ValueError("Low priority tasks ke liye due date 30 din se zyada nahi ho sakti")
         return self
+    
+def get_task_or_404(db: Session, task_id: int) -> TaskDB:
+    task = db.query(TaskDB).filter(TaskDB.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task hi nahi mila")
+    return task
+
+def apply_filters(query, priority, status, overdue, title, startwith, endwith):
+    if priority: query = query.filter(TaskDB.priority == priority)
+    if status: query = query.filter(TaskDB.status == status)
+    if overdue: query = query.filter(TaskDB.due_date < date.today(), TaskDB.status != "completed")
+    if title: query = query.filter(TaskDB.title.ilike(f"%{title}%") | TaskDB.description.ilike(f"%{title}%"))
+    if startwith: query = query.filter(TaskDB.title.ilike(f"{startwith}%"))
+    if endwith: query = query.filter(TaskDB.title.ilike(f"%{endwith}"))
+    return query
+
+def paginate(query, page: int, limit: int):
+    offset = (page - 1) * limit
+    return query.offset(offset).limit(limit).all()
+
+def generate_summary_message(task: TaskDB) -> str:
+    if task.is_overdue: return "This task is overdue"
+    if task.status == "completed": return "Task completed successfully"
+    return f"aapke paas {task.days_left} din bache hain"
 
 @app.post("/tasks")
 def create_task(task: CreateTask):
